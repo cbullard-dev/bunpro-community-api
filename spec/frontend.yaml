@@ -1,0 +1,975 @@
+openapi: 3.0.0
+info:
+  title: Bunpro Community API
+  version: 1.0.1
+  description: |
+    A community-maintained reverse-engineered API reference for Bunpro, a spaced repetition system for learning Japanese grammar.
+  contact:
+    name: Bunpro Community API
+    url: https://github.com/cbullard-dev/bunpro-community-api
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.bunpro.jp/api/frontend
+    description: Bunpro Frontend API Server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /user:
+    get:
+      tags:
+        - User
+      summary: Get User
+      description: Retrieve the current user's information
+      operationId: getUser
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+              example:
+                user: {}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user/user_furigana:
+    get:
+      tags:
+        - User
+      summary: Get User Furigana
+      description: Retrieve the user's furigana settings
+      operationId: getUserFurigana
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user/add_known_kanji:
+    post:
+      tags:
+        - User
+      summary: Add Known Kanji
+      description: Add kanji to the user's known kanji list
+      operationId: addKnownKanji
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kanji
+              properties:
+                kanji:
+                  type: string
+                  description: The kanji character(s) to add
+                  example: "漢"
+            example:
+              kanji: "漢"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user/remove_known_kanji:
+    delete:
+      tags:
+        - User
+      summary: Remove Known Kanji
+      description: Remove kanji from the user's known kanji list
+      operationId: removeKnownKanji
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kanji
+              properties:
+                kanji:
+                  type: string
+                  description: The kanji character(s) to remove
+                  example: "漢"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user/due:
+    get:
+      tags:
+        - User
+      summary: Get Due
+      description: Retrieve items due for review
+      operationId: getDue
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user/queue:
+    get:
+      tags:
+        - User
+      summary: Get Queue
+      description: Retrieve the user's review queue
+      operationId: getQueue
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /bookmarks:
+    post:
+      tags:
+        - Bookmarks
+      summary: Add Bookmark
+      description: Add a new bookmark
+      operationId: addBookmark
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '201':
+          description: Bookmark created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /bookmarks/{bookmarkId}:
+    delete:
+      tags:
+        - Bookmarks
+      summary: Delete Bookmark
+      description: Delete a bookmark by ID
+      operationId: deleteBookmark
+      parameters:
+        - name: bookmarkId
+          in: path
+          required: true
+          description: The ID of the bookmark to delete
+          schema:
+            type: string
+          example: "12345"
+      responses:
+        '200':
+          description: Bookmark deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /completed_readings:
+    patch:
+      tags:
+        - Completed Readings
+      summary: Completed Readings
+      description: Update completed readings
+      operationId: completedReadings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /discourse/topic_replies:
+    get:
+      tags:
+        - Discourse
+      summary: Get Topic Replies
+      description: Retrieve replies for a discourse topic
+      operationId: getTopicReplies
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: The topic ID
+          schema:
+            type: integer
+          example: 1942
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /learn:
+    get:
+      tags:
+        - Learn
+      summary: Learn
+      description: Get learning content for a specific deck
+      operationId: learn
+      parameters:
+        - name: deck_id
+          in: query
+          required: true
+          description: The deck ID to learn from
+          schema:
+            type: integer
+          example: 19
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /review_histories/last_session:
+    get:
+      tags:
+        - Review Histories
+      summary: Get Last Session
+      description: Retrieve the last review session history
+      operationId: getLastSession
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /review_histories/last_24_hours:
+    get:
+      tags:
+        - Review Histories
+      summary: Get Last 24 Hours
+      description: Retrieve review history for the last 24 hours
+      operationId: getLast24Hours
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviewables/vocab/{vocabSlugOrId}:
+    get:
+      tags:
+        - Reviewables
+      summary: Get Vocab
+      description: Retrieve vocabulary item by slug or ID
+      operationId: getVocab
+      parameters:
+        - name: vocabSlugOrId
+          in: path
+          required: true
+          description: The vocabulary slug or ID
+          schema:
+            type: string
+          example: "hello"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviewables/vocab/{vocabId}/prev_next_by_deck_id:
+    get:
+      tags:
+        - Reviewables
+      summary: Get Prev Next By Deck Id
+      description: Get previous and next vocabulary items by deck ID
+      operationId: getPrevNextByDeckId
+      parameters:
+        - name: vocabId
+          in: path
+          required: true
+          description: The vocabulary ID
+          schema:
+            type: string
+          example: "123"
+        - name: deck_id
+          in: query
+          required: true
+          description: The deck ID
+          schema:
+            type: integer
+          example: 28
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviewables/vocab/{vocabSlugOrId}/notes:
+    get:
+      tags:
+        - Reviewables
+      summary: Notes (TODO)
+      description: Retrieve notes for a vocabulary item
+      operationId: getVocabNotes
+      parameters:
+        - name: vocabSlugOrId
+          in: path
+          required: true
+          description: The vocabulary slug or ID
+          schema:
+            type: string
+          example: "hello"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviews:
+    get:
+      tags:
+        - Reviews
+      summary: Get Reviews
+      description: Retrieve all reviews
+      operationId: getReviews
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: per_page
+          in: query
+          required: false
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviews/{reviewId}/update:
+    post:
+      tags:
+        - Reviews
+      summary: Update Review
+      description: Update a specific review
+      operationId: updateReview
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          description: The review ID
+          schema:
+            type: string
+          example: "12345"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviews/add_to_reviews:
+    patch:
+      tags:
+        - Reviews
+      summary: Add to Reviews
+      description: Add items to the review queue
+      operationId: addToReviews
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviews/{reviewId}/update_via_action_type:
+    patch:
+      tags:
+        - Reviews
+      summary: Update Review Via Action Type
+      description: Update a review via action type (e.g., remove from reviews)
+      operationId: updateReviewViaActionType
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          description: The review ID
+          schema:
+            type: string
+          example: "12345"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /search/v1_1:
+    post:
+      tags:
+        - Search
+      summary: Search
+      description: Search for content
+      operationId: search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+            example:
+              query: "string"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /settings/update:
+    patch:
+      tags:
+        - Settings
+      summary: Update Settings
+      description: Update user settings
+      operationId: updateSettings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/base_stats:
+    get:
+      tags:
+        - User Stats
+      summary: Get Base Stats
+      description: Retrieve base statistics for the user
+      operationId: getBaseStats
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/jlpt_progress_mixed:
+    get:
+      tags:
+        - User Stats
+      summary: Get JLPT Progress Mixed
+      description: Retrieve mixed JLPT progress statistics
+      operationId: getJlptProgressMixed
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/forecast_daily:
+    get:
+      tags:
+        - User Stats
+      summary: Get Forecast Daily
+      description: Retrieve daily review forecast
+      operationId: getForecastDaily
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/forecast_hourly:
+    get:
+      tags:
+        - User Stats
+      summary: Get Forecast Hourly
+      description: Retrieve hourly review forecast
+      operationId: getForecastHourly
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/srs_level_overview:
+    get:
+      tags:
+        - User Stats
+      summary: Get SRS Level Overview
+      description: Retrieve SRS level overview statistics
+      operationId: getSrsLevelOverview
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/review_activity:
+    get:
+      tags:
+        - User Stats
+      summary: Get Review Activity
+      description: Retrieve review activity statistics
+      operationId: getReviewActivity
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/srs_level_details:
+    get:
+      tags:
+        - User Stats
+      summary: Get SRS Level Details
+      description: Retrieve detailed SRS level statistics
+      operationId: getSrsLevelDetails
+      parameters:
+        - name: level
+          in: query
+          required: true
+          description: The SRS level (e.g., expert, master, etc.)
+          schema:
+            type: string
+          example: "expert"
+        - name: reviewable_type
+          in: query
+          required: true
+          description: The type of reviewable (e.g., Vocab, Grammar)
+          schema:
+            type: string
+          example: "Vocab"
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/srs_self_study_level_details:
+    get:
+      tags:
+        - User Stats
+      summary: Get SRS Self Study Level Details
+      description: Retrieve self-study SRS level details
+      operationId: getSrsSelfStudyLevelDetails
+      parameters:
+        - name: reviewable_type
+          in: query
+          required: true
+          description: The type of reviewable (e.g., Vocab, Grammar)
+          schema:
+            type: string
+          example: "Vocab"
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_stats/srs_ghost_level_details:
+    get:
+      tags:
+        - User Stats
+      summary: Get SRS Ghost Level Details
+      description: Retrieve ghost review SRS level details
+      operationId: getSrsGhostLevelDetails
+      parameters:
+        - name: reviewable_type
+          in: query
+          required: true
+          description: The type of reviewable (e.g., Vocab, Grammar)
+          schema:
+            type: string
+          example: "Vocab"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_study_questions:
+    post:
+      tags:
+        - User Study Questions
+      summary: Add Self Study Sentence
+      description: Add a self-study sentence/question
+      operationId: addSelfStudySentence
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '201':
+          description: Self study sentence created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /user_study_questions/{userStudyQuestionId}:
+    delete:
+      tags:
+        - User Study Questions
+      summary: Delete Self Study Sentence
+      description: Delete a self-study sentence/question
+      operationId: deleteSelfStudySentence
+      parameters:
+        - name: userStudyQuestionId
+          in: path
+          required: true
+          description: The user study question ID
+          schema:
+            type: string
+          example: "12345"
+      responses:
+        '200':
+          description: Self study sentence deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Use the Frontend API Token obtained from the browser console.
+        Token reference: vault:FRONTEND_API_TOKEN
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters or request body
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Error message
+            example:
+              error: "Invalid request parameters"
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Error message
+            example:
+              error: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Error message
+            example:
+              error: "Resource not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                description: Error message
+            example:
+              error: "Internal server error"
+
+  schemas:
+    GenericObject:
+      type: object
+      description: Generic response object
+      additionalProperties: true
+
+tags:
+  - name: User
+    description: User-related operations
+  - name: Bookmarks
+    description: Bookmark management
+  - name: Completed Readings
+    description: Completed readings tracking
+  - name: Discourse
+    description: Discourse forum integration
+  - name: Learn
+    description: Learning content
+  - name: Review Histories
+    description: Review history tracking
+  - name: Reviewables
+    description: Reviewable items (vocabulary, grammar)
+  - name: Reviews
+    description: Review management
+  - name: Search
+    description: Search functionality
+  - name: Settings
+    description: User settings
+  - name: User Stats
+    description: User statistics and progress
+  - name: User Study Questions
+    description: Self-study questions management
