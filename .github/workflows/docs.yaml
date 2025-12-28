@@ -1,0 +1,52 @@
+name: Build API Documentation and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'spec/frontend.yaml'
+
+jobs:
+  build-spec:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed for gh-pages deployment
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Install Redocly CLI
+      - name: Install Redocly CLI
+        run: npm install -g @redocly/cli
+
+      # 4. Validate OpenAPI spec
+      - name: Validate OpenAPI Spec
+        run: redocly lint spec/frontend.yaml
+
+      # 5. Build output directory
+      - name: Create build directory
+        run: mkdir -p public
+
+      # 6. Copy spec
+      - name: Copy spec
+        run: mkdir -p public/spec && cp spec/frontend.yaml public/spec/
+
+      # 7. Copy landing page
+      - name: Copy landing page
+        run: cp docs/index.html public/index.html
+
+      # 8. Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
