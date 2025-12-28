@@ -22,3 +22,6 @@ This project aims to:
 - Document the Bunpro API endpoints and methods
 - Enable community developers to build tools and integrations
 - Maintain up-to-date API documentation as the platform evolves
+
+## Credits
+highliuk: [Bunpro Postman Collection](https://www.postman.com/technical-meteorologist-63813544/bunpro-api/collection/a7eufz9/bunpro-frontend-api)[ref](https://community.bunpro.jp/t/bunpro-api-when/100574)

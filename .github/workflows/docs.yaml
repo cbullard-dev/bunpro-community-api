@@ -44,7 +44,11 @@ jobs:
       - name: Copy landing page
         run: cp docs/index.html public/index.html
 
-      # 8. Deploy to GitHub Pages
+      # 8. Add .nojekyll to disable Jekyll processing
+      - name: Add .nojekyll file
+        run: touch public/.nojekyll
+
+      # 9. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
