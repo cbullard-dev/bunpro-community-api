@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Bunpro Community API
-  version: 1.0.0
+  version: 1.0.1
   description: |
     A community-maintained reverse-engineered API reference for Bunpro, a spaced repetition system for learning Japanese grammar.
   contact:
