@@ -33,10 +33,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
               example:
                 user: {}
         '401':
@@ -175,7 +171,6 @@ paths:
       description: Add a new bookmark
       operationId: addBookmark
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -231,7 +226,6 @@ paths:
       description: Update completed readings
       operationId: completedReadings
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -243,8 +237,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -308,12 +300,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -379,8 +367,6 @@ paths:
                 $ref: '#/components/schemas/GenericObject'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -413,12 +399,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -426,8 +408,8 @@ paths:
     get:
       tags:
         - Reviewables
-      summary: Get Vocab Notes
-      description: Retrieve notes for a vocabulary item. Note: This endpoint may require additional documentation.
+      summary: Notes (TODO)
+      description: Retrieve notes for a vocabulary item
       operationId: getVocabNotes
       parameters:
         - name: vocabSlugOrId
@@ -446,8 +428,6 @@ paths:
                 $ref: '#/components/schemas/GenericObject'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -485,12 +465,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -510,7 +486,6 @@ paths:
             type: string
           example: "12345"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -522,12 +497,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -539,7 +510,6 @@ paths:
       description: Add items to the review queue
       operationId: addToReviews
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -551,8 +521,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -574,7 +542,6 @@ paths:
             type: string
           example: "12345"
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -586,12 +553,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -603,7 +566,6 @@ paths:
       description: Search for content
       operationId: search
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -630,7 +592,6 @@ paths:
       description: Update user settings
       operationId: updateSettings
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -642,8 +603,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericObject'
-        '400':
-          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -873,7 +832,6 @@ paths:
       description: Add a self-study sentence/question
       operationId: addSelfStudySentence
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -987,9 +945,8 @@ components:
   schemas:
     GenericObject:
       type: object
-      description: Generic response object - actual structure may vary by endpoint
+      description: Generic response object
       additionalProperties: true
-      example: {}
 
 tags:
   - name: User
