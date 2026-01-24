@@ -32,9 +32,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserObject'
+                $ref: '#/components/schemas/User'
               example:
-                user: {}
+                {
+                  "user": {
+                    "data": {
+                      "id": "12345",
+                      "type": "user",
+                      "attributes": {
+                        "id": 12345,
+                        "username": "NotARealUser",
+                        "level": 34,
+                        "xp": 64043,
+                        "is_lifetime": false
+                      }
+                    }
+                  },
+                  "active_cosmetics": {
+                    "data": []
+                  },
+                  "active_title": null
+                }
+
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -947,19 +966,359 @@ components:
       type: object
       description: Generic response object
       additionalProperties: true
-    UserObject:
+
+    User:
       type: object
-      description: An object that returns the information on a single user
+      properties:
+        user:
+          type: object
+          properties:
+            data:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: '12345'
+                type:
+                  type: string
+                  example: 'user'
+                attributes:
+                  $ref: '#/components/schemas/UserAttributes'
+        active_cosmetics:
+          type: object
+          properties:
+            attributes:
+              $ref: '#/components/schemas/ActiveCosmetics'
+
+    UserAttributes:
+      type: object
+      properties:
+        add_spacing_to_sentences:
+          type: boolean
+          example: false
+        admin:
+          type: boolean
+          example: false
+        audio_speed:
+          type: integer
+          example: 75
+        auto_expand_info:
+          type: string
+          example: 'Off'
+        auto_highlight_errors_in_answer:
+          type: string
+          example: 'On'
+        auto_play_review_audio:
+          type: string
+          example: 'On'
+        buncoin:
+          type: integer
+          example: 10000
+        bunny_mode:
+          type: string
+          example: 'Off'
+        browser_theme_sync:
+          type: string
+          example: 'Off'
+        casual_formal_focus:
+          type: string
+          example: 'Casual'
+        created_at:
+          type: string
+          format: date-time
+          example: '2025-06-16T22:34:42.092Z'
+        display_review_srs:
+          type: string
+          example: 'Show'
+        enable_color_blind_assistance:
+          type: string
+          example: 'Off'
+        favorite_badge:
+          type: string
+          example: ''
+        feedback_notification:
+          type: boolean
+          example: false
+        finished_onboarding:
+          type: boolean
+          example: true
+        focus_reviews:
+          type: string
+          example: 'Off'
+        font_sizing:
+          type: string
+          example: '20px'
+        forecast_data_view:
+          type: string
+          example: 'Hourly'
+        furigana:
+          type: string
+          example: 'Wanikani'
+        furigana_on_hover:
+          type: string
+          example: 'On'
+        grammar_hint_order:
+          type: string
+          example: 'Translation First'
+        hide_english:
+          type: string
+          example: 'No'
+        hint_level_grammar:
+          type: string
+          example: 'Nuance Translation'
+        hint_level_vocab:
+          type: string
+          example: 'Show'
+        hide_dashboard_community_discussion:
+          type: boolean
+          example: false
+        hide_streak:
+          type: string
+          example: 'No'
+        hide_tts_audio:
+          type: boolean
+          example: false
+        id:
+          type: integer
+          example: 12345
+        inactive_warnings:
+          type: array
+          items:
+            type: string
+          example: ['japanese-ime', 'mark-as-mastered', 'quiz-undo']
+        include_sq_in_flashcard_reviews:
+          type: boolean
+          example: true
+        is_alpha:
+          type: boolean
+          example: false
+        is_sharing_learning_data:
+          type: boolean
+          example: false
+        is_sharing_profile:
+          type: boolean
+          example: false
+        is_teacher:
+          type: boolean
+          example: false
+        is_translator:
+          type: boolean
+          example: false
+        language:
+          type: string
+          example: 'english'
+        deck_queue_ordering:
+          type: array
+          items:
+            type: integer
+          example: [5, 8]
+        level:
+          type: integer
+          example: 34
+        light_mode:
+          type: string
+          example: 'Modern Dark'
+        listening_mode:
+          type: string
+          example: 'Off'
+        mobile_nav_location:
+          type: string
+          example: 'Left'
+        name:
+          type: string
+        new_notifications:
+          type: boolean
+          example: true
+        next_level_xp:
+          type: integer
+          example: 65500
+        opted_into_beta_features:
+          type: object
+        preferred_audio_gender:
+          type: string
+          example: 'Male'
+        prev_level_xp:
+          type: integer
+          example: 61350
+        profile_card_layout:
+          type: string
+          example: 'all-stats'
+        quiz_undo_action:
+          type: string
+          example: 'clear'
+        review_setting_limit:
+          type: string
+        review_setting_order:
+          type: array
+        review_setting_sort:
+          type: string
+          example: 'srs-desc'
+        show_nsfw_content:
+          type: string
+          example: 'Yes'
+        srs_interval_modifier_grammar:
+          type: number
+          format: float
+          example: 1.0
+        srs_interval_modifier_vocab:
+          type: number
+          format: float
+          example: 1.0
+        srs_strictness_grammar:
+          type: string
+          example: '1'
+        srs_strictness_vocab:
+          type: string
+          example: '1'
+        start_page:
+          type: string
+          example: 'Dashboard'
+        tours:
+          type: array
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-01-24T13:05:42.859Z'
+        username:
+          type: string
+          example: 'NotARealUser'
+        vacation_mode:
+          type: boolean
+          example: false
+        vocab_hint_order:
+          type: string
+          example: 'Nuance First'
+        xp:
+          type: integer
+          example: 64043
+        avatar_url:
+          type: string
+          example: ''
+        has_active_subscription:
+          type: boolean
+          example: true
+        is_lifetime:
+          type: boolean
+          example: true
+
+    ActiveCosmetics:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveCosmetic'
+
+    ActiveCosmetic:
+      type: object
       properties:
         id:
           type: string
-          description: The user ID number as a string
-          example: "1234"
-        user_type:
+          example: '333'
+        type:
           type: string
-          description: The user type information
-          example: "user"
-      additionalProperties: true
+          example: 'cosmetic_item'
+        attributes:
+          $ref: '#/components/schemas/ActiveCosmeticAttributes'
+
+    ActiveCosmeticAttributes:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 333
+        cosmetic_type:
+          type: string
+          example: 'frame'
+        category:
+          type: string
+          example: 'japanese'
+        cost:
+          type: integer
+          example: 10000
+        asset_data:
+          $ref: '#/components/schemas/AssetData'
+        is_new:
+          type: boolean
+          example: false
+        is_favorite:
+          type: boolean
+          example: false
+        is_purchasable:
+          type: boolean
+          example: true
+        author_attribute:
+          type: string
+          example: 'Darts, inspired by ErLouwer'
+        title:
+          type: string
+          example: 'Shodo Love'
+        title_alt:
+          type: string
+        description:
+          type: string
+          example: 'A brush stroke and the culprit of said stroke. By Darts, inspired by ErLouwer'
+        location:
+          type: string
+          example: 'profile'
+
+    AssetData:
+      type: object
+      properties:
+        asset_url:
+          type: string
+          example: ''
+        light-primary-accent:
+          type: string
+          example: '#C74A4A'
+        light-secondary-accent:
+          type: string
+          example: '#F4726D'
+        light-srs-beginner:
+          type: string
+          example: '#082630'
+        light-srs-adept:
+          type: string
+          example: '#153456'
+        light-srs-seasoned:
+          type: string
+          example: '#55386E'
+        light-srs-expert:
+          type: string
+          example: '#9C3A52'
+        light-srs-master:
+          type: string
+          example: '#C74A4A'
+        dark-primary-accent:
+          type: string
+          example: '#E8585D'
+        dark-secondary-accent:
+          type: string
+          example: '#A56665'
+        dark-srs-beginner:
+          type: string
+          example: '#DFBEBE'
+        dark-srs-adept:
+          type: string
+          example: '#B47272'
+        dark-srs-seasoned:
+          type: string
+          example: '#FF9996'
+        dark-srs-expert:
+          type: string
+          example: '#FF7C79'
+        dark-srs-master:
+          type: string
+          example: '#E8585D'
+        slug:
+          type: string
+          example: 'Red'
+        light-subheader:
+          type: string
+          example: '#082630'
+        dark-subheader:
+          type: string
+          example: '#2E2E2E'
 
 
 tags:
