@@ -32,7 +32,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                $ref: '#/components/schemas/UserObject'
               example:
                 user: {}
         '401':
@@ -947,6 +947,20 @@ components:
       type: object
       description: Generic response object
       additionalProperties: true
+    UserObject:
+      type: object
+      description: An object that returns the information on a single user
+      properties:
+        id:
+          type: string
+          description: The user ID number as a string
+          example: "1234"
+        user_type:
+          type: string
+          description: The user type information
+          example: "user"
+      additionalProperties: true
+
 
 tags:
   - name: User
