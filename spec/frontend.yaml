@@ -10,6 +10,8 @@ info:
     Errors observed so far are returned as a list of codes, for example
     `{"errors":[{"code":"AUTH_USER_DENIED"}]}` (401) or `{"errors":[{"code":"DECK_NOT_FOUND"}]}` (404).
     The web client treats `AUTH_USER_DENIED` as "log in again" and `AUTH_USER_NO_SUB` as "needs a subscription".
+    Some validation failures carry a message instead of a code, for example
+    `{"errors":[{"detail":"Some params are missing in payload"}]}` (400).
 
     ## Rate limiting
 
@@ -385,10 +387,13 @@ paths:
         - Decks
       summary: Bulk Vocab Lookup
       description: |
-        Resolve a batch of words, or JMdict ids, to Bunpro reviewables. This is the lookup behind the
+        Resolve a batch of words, or JMdict ids, to Bunpro vocab. This is the lookup behind the
         deck import page. The web client sends at most 30 queries per request.
 
         Each result echoes the `key` of its query. `base_attributes` is `null` when nothing matched.
+
+        This only finds vocab. The web client always sends `reviewable_type` `Vocab`, and a query sent
+        with `GrammarPoint` gets no entry in `results` at all, even for the exact title of a grammar point.
 
         When `multiple_matches` is `true` the entry returned is only the first of several homographs, and
         it is often not the one you meant: 時 returns 時 (じ, "o'clock") rather than 時 (とき, "time"), and
@@ -397,9 +402,7 @@ paths:
 
         `POST /search/v1_1` currently fails with a 500, so this is the working way to search by text.
 
-        Status: verified against the live API (October 2026), with `reviewable_type` `Vocab` only.
-        A single `Grammar` query for は came back with an empty `results` array, so how grammar lookups
-        work is still unknown.
+        Status: verified against the live API (October 2026).
       operationId: importSearch
       requestBody:
         required: true
@@ -434,6 +437,7 @@ paths:
                         example: 'q0'
                       reviewable_type:
                         type: string
+                        description: Always `Vocab`; other types return nothing
                         example: 'Vocab'
                       query:
                         type: string
@@ -508,8 +512,11 @@ paths:
         A reviewable can only be in a deck once. Adding one that is already there, in the same unit or
         a different one, is silently ignored and still answered with a 200.
 
-        Status: verified against the live API (October 2026) with `Vocab` items, 22 in one call.
-        `Grammar` items have not been tested.
+        A reviewable type the API does not know (for example `Grammar` instead of `GrammarPoint`)
+        fails the whole call with a 400.
+
+        Status: verified against the live API (October 2026) with `Vocab` and `GrammarPoint` items,
+        22 in one call.
       operationId: addReviewablesToUnit
       requestBody:
         required: true
@@ -537,9 +544,19 @@ paths:
               deck_unit_id: 67890
               new_contents:
                 - ['Vocab', 652]
+                - ['GrammarPoint', 195]
       responses:
         '200':
           description: Successful response. The body is `null`.
+        '400':
+          description: Bad request - for example an unknown reviewable type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Errors'
+              example:
+                errors:
+                  - detail: 'Some params are missing in payload'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '429':
@@ -556,7 +573,8 @@ paths:
         Remove reviewables from a deck by reviewable id, whichever unit they are in. Note that this takes
         the numeric deck id, not the deck code. The response body is `null`.
 
-        Status: verified against the live API (October 2026) with `Vocab` items, 9 in one call.
+        Status: verified against the live API (October 2026) with `Vocab` and `GrammarPoint` items,
+        9 in one call.
       operationId: deleteReviewablesFromDeck
       requestBody:
         required: true
@@ -1000,9 +1018,8 @@ paths:
         The web client sends the full ordered list for each unit it changes, with `order` running from
         0 to n-1. Returns the updated contents.
 
-        Use `order` for relative position only. The stored values are not always the ones sent: newly
-        added items start at 1000, and in a two-item test that sent 0 and 5 the items were listed
-        afterwards with 1000 and 0.
+        Use `order` for relative position only. The stored values are not always the ones sent: in a
+        two-item test that sent 0 and 5, the items were listed afterwards with 1000 and 0.
 
         Status: verified against the live API (October 2026), 396 items in one call.
       operationId: bulkUpdateDeckContents
@@ -1882,7 +1899,7 @@ components:
 
     Errors:
       type: object
-      description: Error response, as observed for 401 and 404
+      description: Error response, as observed for 400, 401 and 404. Each error has a `code` or a `detail`.
       properties:
         errors:
           type: array
@@ -1893,10 +1910,16 @@ components:
                 type: string
                 description: Machine-readable error code
                 example: 'AUTH_USER_DENIED'
+              detail:
+                type: string
+                description: Human-readable message, seen on a 400
+                example: 'Some params are missing in payload'
 
     ReviewableTuple:
       type: array
-      description: A reviewable as a two-element array of its type (`Vocab` or `Grammar`) and its Bunpro id
+      description: |
+        A reviewable as a two-element array of its type and its Bunpro id. The type is `Vocab` or
+        `GrammarPoint`; `Grammar` is rejected.
       minItems: 2
       maxItems: 2
       items:
@@ -1914,6 +1937,9 @@ components:
           example: '651'
         type:
           type: string
+          description: |
+            `reviewable_base_attribute_vocab` or `reviewable_base_attribute_grammar` in deck contents,
+            `reviewable_base_attribute_mixed` in lookup results
           example: 'reviewable_base_attribute_mixed'
         attributes:
           type: object
@@ -1936,12 +1962,15 @@ components:
               example: "hour, o'clock"
             level:
               type: string
+              description: JLPT level, written like `N5` on vocab and like `JLPT3` on grammar points
               example: 'N5'
             type_pascal:
               type: string
+              description: '`Vocab` or `GrammarPoint`'
               example: 'Vocab'
             type_snake:
               type: string
+              description: '`vocab` or `grammar_point`'
               example: 'vocab'
 
     DeckList:
@@ -2141,6 +2170,7 @@ components:
               example: 67890
             contentable_type:
               type: string
+              description: '`Vocab` or `GrammarPoint`'
               example: 'Vocab'
             contentable_id:
               type: integer
@@ -2148,8 +2178,10 @@ components:
               example: 652
             order:
               type: integer
-              description: Position within the unit, lowest first. Newly added items start at 1000.
-              example: 1000
+              description: |
+                Position within the unit, lowest first. The numbers are not predictable: the first items
+                added to a new unit have been seen starting at 0 and at 1000.
+              example: 0
         relationships:
           type: object
           properties:
