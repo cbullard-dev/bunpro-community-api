@@ -24,7 +24,7 @@ This project aims to:
 - Maintain up-to-date API documentation as the platform evolves
 
 ## Local Testing How To
-To test test this project locally you can follow these steps:
+To test this project locally you can follow these steps:
 1. Run the command `redocly lint spec/frontend.yaml` to first lint the project and check the YAML is valid
 2. Run http-server to run a local server from the main
 3. Enter the docs directory which will launch the index.html
