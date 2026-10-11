@@ -1,9 +1,30 @@
 openapi: 3.1.0
 info:
   title: Bunpro Community API
-  version: 1.0.1
+  version: 1.1.0
   description: |
     A community-maintained reverse-engineered API reference for Bunpro, a spaced repetition system for learning Japanese grammar.
+
+    ## Errors
+
+    Errors observed so far are returned as a list of codes, for example
+    `{"errors":[{"code":"AUTH_USER_DENIED"}]}` (401) or `{"errors":[{"code":"DECK_NOT_FOUND"}]}` (404).
+    The web client treats `AUTH_USER_DENIED` as "log in again" and `AUTH_USER_NO_SUB` as "needs a subscription".
+
+    ## Rate limiting
+
+    Bursts of requests are answered with HTTP 429. It was hit after roughly 350 `GET /reviewables/vocab/{id}`
+    calls made three at a time, and cleared after 30 to 60 seconds. About one request per second, sent
+    sequentially, has been reliable.
+
+    ## Vocab identifiers
+
+    Two different id systems appear in the deck and vocab endpoints, and they are easy to mix up:
+
+    - **Bunpro vocab id**: Bunpro's internal id, e.g. `652` for 時 (とき). Used in reviewable tuples such as
+      `["Vocab", 652]`, in `GET /reviewables/vocab/{id}`, and as `contentable_id` in deck contents.
+    - **JMdict id**: the dictionary's entry id, e.g. `1315840` for 時 (とき). Returned as `jmdict_id` on a vocab,
+      and accepted by `POST /decks/import/search` when `is_jmdict_mode` is `true`.
   contact:
     name: Bunpro Community API
     url: https://github.com/cbullard-dev/bunpro-community-api
@@ -261,6 +282,814 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /decks/my_decks:
+    get:
+      tags:
+        - Decks
+      summary: Get My Decks
+      description: |
+        Retrieve the current user's decks in three groups: decks they created, decks in their learn queue,
+        and decks they bookmarked. Each group also carries the user's settings for those decks in `included`.
+
+        Status: verified against the live API (October 2026).
+      operationId: getMyDecks
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_decks:
+                    $ref: '#/components/schemas/DeckList'
+                  learn_queue_decks:
+                    $ref: '#/components/schemas/DeckList'
+                  bookmarked_decks:
+                    $ref: '#/components/schemas/DeckList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/create:
+    post:
+      tags:
+        - Decks
+      summary: Create Deck
+      description: |
+        Create a custom deck. New decks are private.
+
+        Status: verified against the live API (October 2026) with `title`, `description` and `slug`.
+        `deck_type` and `cover_image` are taken from the web client and have not been tested.
+      operationId: createDeck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deck
+              properties:
+                deck:
+                  type: object
+                  required:
+                    - title
+                    - slug
+                  properties:
+                    title:
+                      type: string
+                      example: 'My Deck'
+                    description:
+                      type: string
+                      example: 'Words from a book I am reading'
+                    slug:
+                      type: string
+                      example: 'my-deck'
+                    deck_type:
+                      type: string
+                      description: Untested.
+                    cover_image:
+                      type: string
+                      description: Cover image as a data URL. Untested.
+            example:
+              deck:
+                title: 'My Deck'
+                description: 'Words from a book I am reading'
+                slug: 'my-deck'
+      responses:
+        '201':
+          description: Deck created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Deck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/import/search:
+    post:
+      tags:
+        - Decks
+      summary: Bulk Vocab Lookup
+      description: |
+        Resolve a batch of words, or JMdict ids, to Bunpro reviewables. This is the lookup behind the
+        deck import page. The web client sends at most 30 queries per request.
+
+        Each result echoes the `key` of its query. `base_attributes` is `null` when nothing matched.
+
+        When `multiple_matches` is `true` the entry returned is only the first of several homographs, and
+        it is often not the one you meant: 時 returns 時 (じ, "o'clock") rather than 時 (とき, "time"), and
+        か returns 蚊 ("mosquito"). Check the reading and meaning with `GET /reviewables/vocab/{id}`, or
+        look the word up by JMdict id, before using the result.
+
+        `POST /search/v1_1` currently fails with a 500, so this is the working way to search by text.
+
+        Status: verified against the live API (October 2026), with `reviewable_type` `Vocab` only.
+      operationId: importSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - queries
+              properties:
+                key:
+                  type: string
+                  description: Client-chosen label for the batch
+                  example: 'b0'
+                is_jmdict_mode:
+                  type: boolean
+                  description: When true, each `query` is a JMdict id instead of Japanese text
+                  default: false
+                queries:
+                  type: array
+                  maxItems: 30
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - reviewable_type
+                      - query
+                    properties:
+                      key:
+                        type: string
+                        description: Client-chosen label, echoed back on the matching result
+                        example: 'q0'
+                      reviewable_type:
+                        type: string
+                        example: 'Vocab'
+                      query:
+                        type: string
+                        description: Japanese text, or a JMdict id when `is_jmdict_mode` is true
+                        example: '時'
+            example:
+              key: 'b0'
+              is_jmdict_mode: false
+              queries:
+                - key: 'q0'
+                  reviewable_type: 'Vocab'
+                  query: '時'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          example: 'q0'
+                        base_attributes:
+                          type: object
+                          nullable: true
+                          description: The matched reviewable, or null when nothing matched
+                          properties:
+                            data:
+                              $ref: '#/components/schemas/ReviewableBase'
+                        multiple_matches:
+                          type: boolean
+                          description: True when the query matched more than one entry
+              example:
+                results:
+                  - key: 'q0'
+                    base_attributes:
+                      data:
+                        id: '651'
+                        type: 'reviewable_base_attribute_mixed'
+                        attributes:
+                          id: 651
+                          slug: '時-hour'
+                          furigana: '時（じ）'
+                          title: '時'
+                          meaning: "hour, o'clock"
+                          level: 'N5'
+                          type_pascal: 'Vocab'
+                          type_snake: 'vocab'
+                    multiple_matches: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/add_reviewables_to_unit:
+    post:
+      tags:
+        - Decks
+      summary: Add Reviewables To Unit
+      description: |
+        Append reviewables to the end of a deck unit. Note that this takes the numeric deck id, not the
+        deck code. The response body is `null`, so list the deck contents afterwards to confirm.
+
+        Status: verified against the live API (October 2026) with `Vocab` items, 22 in one call.
+        Adding an item that is already in the deck has not been tested.
+      operationId: addReviewablesToUnit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deck_id
+                - deck_unit_id
+                - new_contents
+              properties:
+                deck_id:
+                  type: integer
+                  example: 12345
+                deck_unit_id:
+                  type: integer
+                  example: 67890
+                new_contents:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ReviewableTuple'
+            example:
+              deck_id: 12345
+              deck_unit_id: 67890
+              new_contents:
+                - ['Vocab', 652]
+      responses:
+        '200':
+          description: Successful response. The body is `null`.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/delete_reviewables_from_deck:
+    delete:
+      tags:
+        - Decks
+      summary: Remove Reviewables From Deck
+      description: |
+        Remove reviewables from a deck by reviewable id, whichever unit they are in. Note that this takes
+        the numeric deck id, not the deck code. The response body is `null`.
+
+        Status: verified against the live API (October 2026) with `Vocab` items, 9 in one call.
+      operationId: deleteReviewablesFromDeck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deck_id
+                - contents_to_delete
+              properties:
+                deck_id:
+                  type: integer
+                  example: 12345
+                contents_to_delete:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ReviewableTuple'
+            example:
+              deck_id: 12345
+              contents_to_delete:
+                - ['Vocab', 651]
+      responses:
+        '200':
+          description: Successful response. The body is `null`.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    get:
+      tags:
+        - Decks
+      summary: Get Deck
+      description: |
+        Retrieve a deck, optionally with its units.
+
+        Status: verified against the live API (October 2026) with `include=units,deletion_info`.
+      operationId: getDeck
+      parameters:
+        - name: include
+          in: query
+          required: false
+          description: Comma-separated extras to return alongside the deck
+          schema:
+            type: string
+          example: 'units,deletion_info'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deck:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Deck'
+                  deletion_info:
+                    type: object
+                    description: Present when requested with `include`
+                    properties:
+                      has_other_learners:
+                        type: boolean
+                  units:
+                    type: object
+                    description: Present when requested with `include`
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DeckUnit'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - Decks
+      summary: Update Deck
+      description: |
+        Update a deck's details.
+
+        Status: verified against the live API (October 2026) with `title`.
+      operationId: updateDeck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deck
+              properties:
+                deck:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    description:
+                      type: string
+            example:
+              deck:
+                title: 'My Renamed Deck'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Decks
+      summary: Delete Deck
+      description: |
+        Delete a deck.
+
+        Status: verified against the live API (October 2026).
+      operationId: deleteDeck
+      responses:
+        '200':
+          description: Deck deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/deck_units:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    post:
+      tags:
+        - Decks
+      summary: Create Deck Unit
+      description: |
+        Add a unit (a section) to a deck. Every item in a deck belongs to a unit.
+
+        Status: verified against the live API (October 2026).
+      operationId: createDeckUnit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - unit_title
+              properties:
+                unit_title:
+                  type: string
+                  example: 'Chapter 1'
+                unit_label:
+                  type: string
+                  example: ''
+            example:
+              unit_title: 'Chapter 1'
+              unit_label: ''
+      responses:
+        '201':
+          description: Unit created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeckUnit'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Decks
+      summary: Delete Deck Units
+      description: |
+        Delete units from a deck.
+
+        Status: taken from the web client; not yet tested.
+      operationId: deleteDeckUnits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  description: Deck unit ids
+                  items:
+                    type: integer
+            example:
+              ids: [67890]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/deck_units/bulk_update:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    patch:
+      tags:
+        - Decks
+      summary: Reorder Or Rename Deck Units
+      description: |
+        Change the order or titles of a deck's units.
+
+        Status: taken from the web client; not yet tested.
+      operationId: bulkUpdateDeckUnits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - units
+              properties:
+                units:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        type: integer
+                        description: Deck unit id
+                      deck_order:
+                        type: integer
+                        description: Zero-based position of the unit in the deck
+                      unit_title:
+                        type: string
+            example:
+              units:
+                - id: 67890
+                  deck_order: 0
+                  unit_title: 'Chapter 1'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/contents:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    post:
+      tags:
+        - Decks
+      summary: List Deck Contents
+      description: |
+        List the items in a deck, one page at a time. This is a POST because the filters travel in the body.
+
+        Each entry in `contents.data` is one placement of a reviewable in the deck: `id` is the deck content
+        id used by the reorder and delete-by-content-id endpoints, and `contentable_id` is the reviewable's
+        own id. Titles and meanings are in `contents.included`.
+
+        Status: verified against the live API (October 2026). `filters` and `sorting_order` were only sent
+        as `{}` and `null`.
+      operationId: listDeckContents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page:
+                  type: integer
+                  minimum: 1
+                  example: 1
+                per_page:
+                  type: integer
+                  example: 50
+                filters:
+                  type: object
+                  additionalProperties: true
+                sorting_order:
+                  type: string
+                  nullable: true
+                deck_unit_id:
+                  type: string
+                  description: Only list the contents of this unit
+                  example: '67890'
+                query:
+                  type: string
+                  description: Only list contents matching this text
+            example:
+              page: 1
+              per_page: 50
+              filters: {}
+              sorting_order: null
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contents:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DeckContent'
+                      included:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ReviewableBase'
+                  pagy:
+                    $ref: '#/components/schemas/Pagy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/deck_contents:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    delete:
+      tags:
+        - Decks
+      summary: Delete Deck Contents
+      description: |
+        Remove items from a deck by deck content id (the `id` of an entry from List Deck Contents).
+
+        Status: verified against the live API (October 2026).
+      operationId: deleteDeckContents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  description: Deck content ids
+                  items:
+                    type: integer
+            example:
+              ids: [1234567]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/deck_contents/bulk_update:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    patch:
+      tags:
+        - Decks
+      summary: Reorder Or Move Deck Contents
+      description: |
+        Change the order of items within a unit, or move items to another unit by changing `deck_unit_id`.
+        The web client sends the full ordered list for each unit it changes, with `order` running from
+        0 to n-1. Returns the updated contents.
+
+        Status: verified against the live API (October 2026), 396 items in one call.
+      operationId: bulkUpdateDeckContents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contents
+              properties:
+                contents:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        type: integer
+                        description: Deck content id
+                      order:
+                        type: integer
+                        description: Zero-based position within the unit
+                      deck_unit_id:
+                        type: integer
+                        description: The unit the item belongs in
+            example:
+              contents:
+                - id: 1234567
+                  order: 0
+                  deck_unit_id: 67890
+                - id: 1234568
+                  order: 1
+                  deck_unit_id: 67890
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deck_settings/add_to_queue:
+    post:
+      tags:
+        - Decks
+      summary: Add Deck To Learn Queue
+      description: |
+        Add a deck to the user's learn queue.
+
+        Status: taken from the web client; not yet tested, and the request body is unknown.
+      operationId: addDeckToQueue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericObject'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deck_settings/{deckSettingsId}/remove_from_queue:
+    post:
+      tags:
+        - Decks
+      summary: Remove Deck From Learn Queue
+      description: |
+        Remove a deck from the user's learn queue.
+
+        Status: taken from the web client; not yet tested.
+      operationId: removeDeckFromQueue
+      parameters:
+        - name: deckSettingsId
+          in: path
+          required: true
+          description: Presumably the id of the user's settings for the deck (see `included` in Get My Decks); unconfirmed
+          schema:
+            type: string
+          example: "12345"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /discourse/topic_replies:
     get:
       tags:
@@ -367,25 +1196,41 @@ paths:
       tags:
         - Reviewables
       summary: Get Vocab
-      description: Retrieve vocabulary item by slug or ID
+      description: |
+        Retrieve a vocabulary item by slug or Bunpro vocab id, with its example sentences in `included`.
+
+        `kana` is the primary reading, and `jmdict_data` lists every spelling and reading of the
+        dictionary entry, which makes this the endpoint to use for telling homographs apart.
+
+        Status: response shape verified against the live API by Bunpro vocab id (October 2026).
       operationId: getVocab
       parameters:
         - name: vocabSlugOrId
           in: path
           required: true
-          description: The vocabulary slug or ID
+          description: The vocabulary slug or Bunpro vocab id
           schema:
             type: string
-          example: "hello"
+          example: "652"
       responses:
         '200':
           description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Vocab'
+                  included:
+                    type: array
+                    description: The vocab's example sentences (`study_question` resources)
+                    items:
+                      $ref: '#/components/schemas/GenericObject'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -582,7 +1427,11 @@ paths:
       tags:
         - Search
       summary: Search
-      description: Search for content
+      description: |
+        Search for content.
+
+        As of October 2026 a request with the body `{"query": "..."}` is answered with a plain-text
+        500, so the expected body is unknown. To look up vocab by text, use `POST /decks/import/search`.
       operationId: search
       requestBody:
         content:
@@ -903,12 +1752,32 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
       description: |
-        Use the Frontend API Token obtained from the browser console.
-        Token reference: vault:FRONTEND_API_TOKEN
+        Use the Frontend API Token: the value of the `frontend_api_token` cookie that bunpro.jp sets once
+        you are logged in (DevTools → Application → Cookies). It is an opaque 32-character string, not a JWT.
+
+        The API accepts it either as `Authorization: Bearer <token>` or, as the web client sends it,
+        `Authorization: Token token=<token>`. It works from a script outside the browser.
+
+        The "API key" shown on the Bunpro settings page is a different credential and is rejected here
+        with `401 AUTH_USER_DENIED`.
+
+  parameters:
+    DeckCode:
+      name: deckCode
+      in: path
+      required: true
+      description: |
+        The deck's short code, as seen in its URL (`bunpro.jp/decks/{deckCode}/{slug}`) and returned as
+        `deck_code`. This is not the numeric deck id.
+      schema:
+        type: string
+      example: 'abc123'
 
   responses:
+    TooManyRequests:
+      description: Too many requests - slow down and retry after a pause (30 to 60 seconds has been enough)
+
     BadRequest:
       description: Bad request - invalid parameters or request body
       content:
@@ -927,26 +1796,20 @@ components:
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              error:
-                type: string
-                description: Error message
-            example:
-              error: "Authentication required"
+            $ref: '#/components/schemas/Errors'
+          example:
+            errors:
+              - code: 'AUTH_USER_DENIED'
 
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              error:
-                type: string
-                description: Error message
-            example:
-              error: "Resource not found"
+            $ref: '#/components/schemas/Errors'
+          example:
+            errors:
+              - code: 'DECK_NOT_FOUND'
 
     InternalServerError:
       description: Internal server error
@@ -967,6 +1830,456 @@ components:
       description: Generic response object
       additionalProperties: true
 
+    Errors:
+      type: object
+      description: Error response, as observed for 401 and 404
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                description: Machine-readable error code
+                example: 'AUTH_USER_DENIED'
+
+    ReviewableTuple:
+      type: array
+      description: A reviewable as a two-element array of its type (`Vocab` or `Grammar`) and its Bunpro id
+      minItems: 2
+      maxItems: 2
+      items:
+        oneOf:
+          - type: string
+          - type: integer
+      example: ['Vocab', 652]
+
+    ReviewableBase:
+      type: object
+      description: The short form of a reviewable, used in deck contents and lookup results
+      properties:
+        id:
+          type: string
+          example: '651'
+        type:
+          type: string
+          example: 'reviewable_base_attribute_mixed'
+        attributes:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Bunpro vocab (or grammar) id
+              example: 651
+            slug:
+              type: string
+              example: '時-hour'
+            furigana:
+              type: string
+              example: '時（じ）'
+            title:
+              type: string
+              example: '時'
+            meaning:
+              type: string
+              example: "hour, o'clock"
+            level:
+              type: string
+              example: 'N5'
+            type_pascal:
+              type: string
+              example: 'Vocab'
+            type_snake:
+              type: string
+              example: 'vocab'
+
+    DeckList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deck'
+        included:
+          type: array
+          description: The user's settings for each deck in `data`
+          items:
+            $ref: '#/components/schemas/DeckSettings'
+
+    Deck:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '12345'
+        type:
+          type: string
+        attributes:
+          $ref: '#/components/schemas/DeckAttributes'
+        relationships:
+          type: object
+
+    DeckAttributes:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Numeric deck id
+          example: 12345
+        user_id:
+          type: integer
+          nullable: true
+          description: The owner's user id; null on Bunpro's own decks
+        slug:
+          type: string
+          example: 'my-deck'
+        deck_code:
+          type: string
+          description: Short code used in deck URLs and in `/decks/{deckCode}` paths
+          example: 'abc123'
+        vocab_count:
+          type: integer
+          example: 420
+        grammar_count:
+          type: integer
+          example: 0
+        is_bunpro_deck:
+          type: boolean
+          example: false
+        is_public:
+          type: boolean
+          example: false
+        used_by_user_count:
+          type: integer
+          example: 1
+        cover_image_url:
+          type: string
+          nullable: true
+        clone_status:
+          type: string
+          nullable: true
+        deck_type:
+          type: string
+        is_shared:
+          type: boolean
+          example: false
+        approval_status:
+          type: string
+        title:
+          type: string
+          example: 'My Deck'
+        description:
+          type: string
+        reviews_due_count:
+          type: integer
+          example: 0
+        author_username:
+          type: string
+          nullable: true
+          example: 'NotARealUser'
+
+    DeckSettings:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        attributes:
+          $ref: '#/components/schemas/DeckSettingsAttributes'
+        relationships:
+          type: object
+
+    DeckSettingsAttributes:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        deck_id:
+          type: integer
+        batch_size:
+          type: integer
+        default_srs_level:
+          type: integer
+        sorting_order:
+          type: string
+        default_input_type_grammar:
+          type: string
+        default_input_type_vocab:
+          type: string
+        complete_grammar_count:
+          type: integer
+        complete_vocab_count:
+          type: integer
+        last_learned_at:
+          type: string
+          nullable: true
+        daily_goal:
+          type: integer
+        daily_goal_count_grammar:
+          type: integer
+        daily_goal_count_vocab:
+          type: integer
+        is_bookmarked:
+          type: boolean
+        actively_studying:
+          type: boolean
+
+    DeckUnit:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '67890'
+        type:
+          type: string
+        attributes:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Deck unit id
+              example: 67890
+            deck_id:
+              type: integer
+              example: 12345
+            deck_order:
+              type: integer
+              description: Zero-based position of the unit in the deck
+              example: 0
+            unit_title:
+              type: string
+              example: 'Chapter 1'
+            unit_label:
+              type: string
+              example: ''
+            deck_contents_count:
+              type: integer
+              example: 42
+            learned_count:
+              type: integer
+              example: 0
+
+    DeckContent:
+      type: object
+      description: One placement of a reviewable in a deck
+      properties:
+        id:
+          type: string
+          example: '1234567'
+        type:
+          type: string
+        attributes:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Deck content id
+              example: 1234567
+            deck_id:
+              type: integer
+              example: 12345
+            deck_unit_id:
+              type: integer
+              example: 67890
+            contentable_type:
+              type: string
+              example: 'Vocab'
+            contentable_id:
+              type: integer
+              description: The reviewable's own id (a Bunpro vocab id when `contentable_type` is `Vocab`)
+              example: 652
+            order:
+              type: integer
+              description: Zero-based position within the unit
+              example: 0
+        relationships:
+          type: object
+          properties:
+            contentable:
+              type: object
+              properties:
+                data:
+                  type: object
+                  description: Points at the matching entry in `included`
+                  properties:
+                    id:
+                      type: string
+                    type:
+                      type: string
+
+    Pagy:
+      type: object
+      description: Pagination details. Only the most useful fields are listed.
+      additionalProperties: true
+      properties:
+        count:
+          type: integer
+          description: Total number of items
+          example: 420
+        page:
+          type: integer
+          example: 1
+        items:
+          type: integer
+          description: Items per page
+          example: 50
+        pages:
+          type: integer
+          description: Total number of pages
+          example: 9
+        prev:
+          type: integer
+          nullable: true
+        next:
+          type: integer
+          nullable: true
+          example: 2
+
+    Vocab:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '652'
+        type:
+          type: string
+          example: 'vocab'
+        attributes:
+          $ref: '#/components/schemas/VocabAttributes'
+        relationships:
+          type: object
+
+    VocabAttributes:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Bunpro vocab id
+          example: 652
+        title:
+          type: string
+          example: '時'
+        jlpt_level:
+          type: string
+          example: 'N5'
+        furigana:
+          type: string
+          example: '時（とき）'
+        kana:
+          type: string
+          description: Primary reading
+          example: 'とき'
+        slug:
+          type: string
+          example: '時'
+        pitch_accent_stress:
+          type: string
+          example: 'LH'
+        frequency_anime:
+          type: integer
+          example: 121
+        frequency_novels:
+          type: integer
+          example: 104
+        frequency_general:
+          type: integer
+          example: 48
+        frequency_netflix:
+          type: integer
+          example: 83
+        frequency_dictionary:
+          type: integer
+          example: 112
+        female_audio_url:
+          type: string
+          example: ''
+        male_audio_url:
+          type: string
+          example: ''
+        has_tts_audio:
+          type: boolean
+          example: true
+        jmdict_id:
+          type: integer
+          description: The id of the matching JMdict entry
+          example: 1315840
+        jmdict_data:
+          type: object
+          description: The JMdict entry, in the shape used by jmdict-simplified
+          properties:
+            id:
+              type: string
+              example: '1315840'
+            kanji:
+              type: array
+              description: Every kanji spelling of the entry
+              items:
+                type: object
+                properties:
+                  common:
+                    type: boolean
+                  text:
+                    type: string
+                    example: '時'
+                  tags:
+                    type: array
+                    items:
+                      type: string
+            kana:
+              type: array
+              description: Every reading of the entry
+              items:
+                type: object
+                properties:
+                  common:
+                    type: boolean
+                  text:
+                    type: string
+                    example: 'とき'
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                  appliesToKanji:
+                    type: array
+                    items:
+                      type: string
+            sense:
+              type: array
+              description: The entry's senses, each with `partOfSpeech`, `gloss` and related fields
+              items:
+                $ref: '#/components/schemas/GenericObject'
+        jmdict_pos:
+          type: array
+          items:
+            type: string
+          example: ['n']
+        wrong_answers:
+          type: string
+          example: ''
+        nuance:
+          type: string
+          description: Explanation of the word, in Japanese
+        nuance_translation:
+          type: string
+          description: Explanation of the word, in English
+        type_snake:
+          type: string
+          example: 'vocab'
+        type_pascal:
+          type: string
+          example: 'Vocab'
+        meaning:
+          type: string
+          example: 'time, hour, moment'
+        accepted_answers:
+          type: string
+          description: Comma-separated English answers accepted in reviews
+
     User:
       type: object
       properties:
@@ -985,10 +2298,10 @@ components:
                 attributes:
                   $ref: '#/components/schemas/UserAttributes'
         active_cosmetics:
-          type: object
-          properties:
-            attributes:
-              $ref: '#/components/schemas/ActiveCosmetics'
+          $ref: '#/components/schemas/ActiveCosmetics'
+        active_title:
+          type: string
+          nullable: true
 
     UserAttributes:
       type: object
@@ -1328,6 +2641,8 @@ tags:
     description: Bookmark management
   - name: Completed Readings
     description: Completed readings tracking
+  - name: Decks
+    description: Custom decks, their units and contents
   - name: Discourse
     description: Discourse forum integration
   - name: Learn
