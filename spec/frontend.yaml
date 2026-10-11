@@ -322,6 +322,8 @@ paths:
       description: |
         Create a custom deck. New decks are private.
 
+        The deck in the response has no `reviews_due_count` or `author_username`.
+
         Status: verified against the live API (October 2026) with `title`, `description` and `slug`.
         `deck_type` and `cover_image` are taken from the web client and have not been tested.
       operationId: createDeck
@@ -396,6 +398,8 @@ paths:
         `POST /search/v1_1` currently fails with a 500, so this is the working way to search by text.
 
         Status: verified against the live API (October 2026), with `reviewable_type` `Vocab` only.
+        A single `Grammar` query for は came back with an empty `results` array, so how grammar lookups
+        work is still unknown.
       operationId: importSearch
       requestBody:
         required: true
@@ -501,8 +505,11 @@ paths:
         Append reviewables to the end of a deck unit. Note that this takes the numeric deck id, not the
         deck code. The response body is `null`, so list the deck contents afterwards to confirm.
 
+        A reviewable can only be in a deck once. Adding one that is already there, in the same unit or
+        a different one, is silently ignored and still answered with a 200.
+
         Status: verified against the live API (October 2026) with `Vocab` items, 22 in one call.
-        Adding an item that is already in the deck has not been tested.
+        `Grammar` items have not been tested.
       operationId: addReviewablesToUnit
       requestBody:
         required: true
@@ -642,9 +649,9 @@ paths:
         - Decks
       summary: Update Deck
       description: |
-        Update a deck's details.
+        Update a deck's details. Returns the updated deck, without `reviews_due_count` or `author_username`.
 
-        Status: verified against the live API (October 2026) with `title`.
+        Status: verified against the live API (October 2026) with `title` and `description`.
       operationId: updateDeck
       requestBody:
         required: true
@@ -671,7 +678,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Deck'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -692,6 +702,13 @@ paths:
       responses:
         '200':
           description: Deck deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anonymized:
+                    type: boolean
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -709,7 +726,8 @@ paths:
         - Decks
       summary: Create Deck Unit
       description: |
-        Add a unit (a section) to a deck. Every item in a deck belongs to a unit.
+        Add a unit (a section) to a deck. Every item in a deck belongs to a unit. The new unit goes
+        last. The unit in the response has no `deck_contents_count` or `learned_count`.
 
         Status: verified against the live API (October 2026).
       operationId: createDeckUnit
@@ -754,9 +772,10 @@ paths:
         - Decks
       summary: Delete Deck Units
       description: |
-        Delete units from a deck.
+        Delete units from a deck. The response body is `null`.
 
-        Status: taken from the web client; not yet tested.
+        Status: verified against the live API (October 2026) with an empty unit. What happens to the
+        contents of a unit that still has items has not been tested.
       operationId: deleteDeckUnits
       requestBody:
         required: true
@@ -776,11 +795,7 @@ paths:
               ids: [67890]
       responses:
         '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericObject'
+          description: Successful response. The body is `null`.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -798,9 +813,10 @@ paths:
         - Decks
       summary: Reorder Or Rename Deck Units
       description: |
-        Change the order or titles of a deck's units.
+        Change the order or titles of a deck's units. Returns the updated units, without
+        `deck_contents_count` or `learned_count`.
 
-        Status: taken from the web client; not yet tested.
+        Status: verified against the live API (October 2026), reordering and renaming in one call.
       operationId: bulkUpdateDeckUnits
       requestBody:
         required: true
@@ -837,7 +853,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckUnit'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -861,8 +882,8 @@ paths:
         id used by the reorder and delete-by-content-id endpoints, and `contentable_id` is the reviewable's
         own id. Titles and meanings are in `contents.included`.
 
-        Status: verified against the live API (October 2026). `filters` and `sorting_order` were only sent
-        as `{}` and `null`.
+        Status: verified against the live API (October 2026), including `deck_unit_id` and `query`.
+        `filters` and `sorting_order` were only sent as `{}` and `null`.
       operationId: listDeckContents
       requestBody:
         required: true
@@ -890,7 +911,7 @@ paths:
                   example: '67890'
                 query:
                   type: string
-                  description: Only list contents matching this text
+                  description: Only list contents matching this text. Matches readings too (とき finds 時).
             example:
               page: 1
               per_page: 50
@@ -935,6 +956,7 @@ paths:
       summary: Delete Deck Contents
       description: |
         Remove items from a deck by deck content id (the `id` of an entry from List Deck Contents).
+        The response body is `null`.
 
         Status: verified against the live API (October 2026).
       operationId: deleteDeckContents
@@ -956,11 +978,7 @@ paths:
               ids: [1234567]
       responses:
         '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericObject'
+          description: Successful response. The body is `null`.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -981,6 +999,10 @@ paths:
         Change the order of items within a unit, or move items to another unit by changing `deck_unit_id`.
         The web client sends the full ordered list for each unit it changes, with `order` running from
         0 to n-1. Returns the updated contents.
+
+        Use `order` for relative position only. The stored values are not always the ones sent: newly
+        added items start at 1000, and in a two-item test that sent 0 and 5 the items were listed
+        afterwards with 1000 and 0.
 
         Status: verified against the live API (October 2026), 396 items in one call.
       operationId: bulkUpdateDeckContents
@@ -1023,7 +1045,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeckContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -1039,42 +1066,62 @@ paths:
         - Decks
       summary: Add Deck To Learn Queue
       description: |
-        Add a deck to the user's learn queue.
+        Add a deck to the user's learn queue. Returns the user's settings for the deck, with the deck
+        itself in `included`. The settings `id` is what Remove Deck From Learn Queue takes.
 
-        Status: taken from the web client; not yet tested, and the request body is unknown.
+        Status: verified against the live API (October 2026).
       operationId: addDeckToQueue
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenericObject'
+              type: object
+              required:
+                - deck_id
+              properties:
+                deck_id:
+                  type: integer
+                  description: Numeric deck id
+                  example: 12345
+            example:
+              deck_id: 12345
       responses:
         '200':
           description: Successful response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeckSettings'
+                  included:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deck'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
   /deck_settings/{deckSettingsId}/remove_from_queue:
-    post:
+    delete:
       tags:
         - Decks
       summary: Remove Deck From Learn Queue
       description: |
-        Remove a deck from the user's learn queue.
+        Remove a deck from the user's learn queue. Returns the user's settings for the deck.
 
-        Status: taken from the web client; not yet tested.
+        Status: verified against the live API (October 2026).
       operationId: removeDeckFromQueue
       parameters:
         - name: deckSettingsId
           in: path
           required: true
-          description: Presumably the id of the user's settings for the deck (see `included` in Get My Decks); unconfirmed
+          description: |
+            The id of the user's settings for the deck, not the deck id. It is returned by Add Deck To
+            Learn Queue and listed in `included` in Get My Decks.
           schema:
             type: string
           example: "12345"
@@ -1084,7 +1131,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObject'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeckSettings'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -1973,10 +2023,12 @@ components:
           type: string
         reviews_due_count:
           type: integer
+          description: Only returned when reading decks, not by create or update
           example: 0
         author_username:
           type: string
           nullable: true
+          description: Only returned when reading decks, not by create or update
           example: 'NotARealUser'
 
     DeckSettings:
@@ -2058,9 +2110,11 @@ components:
               example: ''
             deck_contents_count:
               type: integer
+              description: Only returned by Get Deck
               example: 42
             learned_count:
               type: integer
+              description: Only returned by Get Deck
               example: 0
 
     DeckContent:
@@ -2094,8 +2148,8 @@ components:
               example: 652
             order:
               type: integer
-              description: Zero-based position within the unit
-              example: 0
+              description: Position within the unit, lowest first. Newly added items start at 1000.
+              example: 1000
         relationships:
           type: object
           properties:
