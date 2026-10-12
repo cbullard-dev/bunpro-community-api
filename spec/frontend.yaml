@@ -326,8 +326,7 @@ paths:
 
         The deck in the response has no `reviews_due_count` or `author_username`.
 
-        Status: verified against the live API (October 2026) with `title`, `description` and `slug`.
-        `deck_type` and `cover_image` are taken from the web client and have not been tested.
+        Status: verified against the live API (October 2026), including `deck_type` and `cover_image`.
       operationId: createDeck
       requestBody:
         required: true
@@ -355,10 +354,13 @@ paths:
                       example: 'my-deck'
                     deck_type:
                       type: string
-                      description: Untested.
+                      description: |
+                        The deck's category. The web client offers `grammar`, `vocab`, `textbook`, `anime`, `manga`, `game`, `movie`, `novel`, `music` and `misc`.
+                        The API does not check the value and stores any string.
+                      example: 'novel'
                     cover_image:
                       type: string
-                      description: Cover image as a data URL. Untested.
+                      description: Cover image as a base64 data URL (`data:image/png;base64,...`)
             example:
               deck:
                 title: 'My Deck'
@@ -667,9 +669,10 @@ paths:
         - Decks
       summary: Update Deck
       description: |
-        Update a deck's details. Returns the updated deck, without `reviews_due_count` or `author_username`.
+        Update a deck's details. Only the fields sent are changed. Returns the updated deck, without
+        `reviews_due_count` or `author_username`. Changing the slug does not change the deck code.
 
-        Status: verified against the live API (October 2026) with `title` and `description`.
+        Status: verified against the live API (October 2026) with each field below.
       operationId: updateDeck
       requestBody:
         required: true
@@ -687,6 +690,14 @@ paths:
                       type: string
                     description:
                       type: string
+                    slug:
+                      type: string
+                    deck_type:
+                      type: string
+                      description: See Create Deck. An empty string clears it.
+                    cover_image:
+                      type: string
+                      description: Cover image as a base64 data URL; replaces the current one
             example:
               deck:
                 title: 'My Renamed Deck'
@@ -790,10 +801,11 @@ paths:
         - Decks
       summary: Delete Deck Units
       description: |
-        Delete units from a deck. The response body is `null`.
+        Delete units from a deck. Any items in a deleted unit are removed from the deck with it,
+        without a warning. The response body is `null`.
 
-        Status: verified against the live API (October 2026) with an empty unit. What happens to the
-        contents of a unit that still has items has not been tested.
+        Status: verified against the live API (October 2026), with an empty unit and with a unit
+        holding items.
       operationId: deleteDeckUnits
       requestBody:
         required: true
@@ -901,7 +913,9 @@ paths:
         own id. Titles and meanings are in `contents.included`.
 
         Status: verified against the live API (October 2026), including `deck_unit_id` and `query`.
-        `filters` and `sorting_order` were only sent as `{}` and `null`.
+        What `filters` and `sorting_order` accept is still unknown. The web client sends them as `{}`
+        and `null` by default; a dozen guessed filter keys, and `sorting_order` set to `default` or to
+        a made-up value, all returned the unfiltered list in the same order with a 200.
       operationId: listDeckContents
       requestBody:
         required: true
@@ -2040,6 +2054,9 @@ components:
           nullable: true
         deck_type:
           type: string
+          description: |
+            The deck's category, or an empty string. The web client uses `grammar`, `vocab`, `textbook`, `anime`, `manga`, `game`, `movie`, `novel`, `music` and `misc`.
+          example: 'novel'
         is_shared:
           type: boolean
           example: false
