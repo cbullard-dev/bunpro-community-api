@@ -912,10 +912,12 @@ paths:
         id used by the reorder and delete-by-content-id endpoints, and `contentable_id` is the reviewable's
         own id. Titles and meanings are in `contents.included`.
 
-        Status: verified against the live API (October 2026), including `deck_unit_id` and `query`.
-        What `filters` and `sorting_order` accept is still unknown. The web client sends them as `{}`
-        and `null` by default; a dozen guessed filter keys, and `sorting_order` set to `default` or to
-        a made-up value, all returned the unfiltered list in the same order with a 200.
+        Unknown filter values and an unknown `sorting_order` are ignored with a 200, so a typo gives
+        the full list in the default order instead of an error.
+
+        Status: verified against the live API (October 2026), including `deck_unit_id`, `query`,
+        `filters` and `sorting_order`. The `beginner` progress value and the `ghost`, `troubled` and
+        `learned` filter values were taken from the web client's requests without checking their results.
       operationId: listDeckContents
       requestBody:
         required: true
@@ -932,11 +934,16 @@ paths:
                   type: integer
                   example: 50
                 filters:
-                  type: object
-                  additionalProperties: true
+                  $ref: '#/components/schemas/DeckContentFilters'
                 sorting_order:
                   type: string
                   nullable: true
+                  description: |
+                    `default` (or null) keeps the deck's own order. `alphabetical` sorts by title.
+                    `general`, `anime`, `novels`, `netflix` and `dictionary` sort from most to least
+                    frequent in that kind of source. These are the same values as `sorting_order` in
+                    the user's deck settings.
+                  enum: [default, alphabetical, general, anime, novels, netflix, dictionary]
                 deck_unit_id:
                   type: string
                   description: Only list the contents of this unit
@@ -947,8 +954,13 @@ paths:
             example:
               page: 1
               per_page: 50
-              filters: {}
-              sorting_order: null
+              filters:
+                recent: []
+                progress: []
+                system: []
+                jlpt: ['n5']
+                type: []
+              sorting_order: 'default'
       responses:
         '200':
           description: Successful response
@@ -970,6 +982,71 @@ paths:
                           $ref: '#/components/schemas/ReviewableBase'
                   pagy:
                     $ref: '#/components/schemas/Pagy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /decks/{deckCode}/contents/matches:
+    parameters:
+      - $ref: '#/components/parameters/DeckCode'
+    post:
+      tags:
+        - Decks
+      summary: Count Deck Contents Matches
+      description: |
+        Count the items in a deck that match a set of filters, in total and per unit. The web client
+        calls this when a filter is switched on, to show how many matches each unit holds, before it
+        lists them with List Deck Contents. Units with no matches are left out of `unit_counts`.
+
+        Status: verified against the live API (October 2026).
+      operationId: countDeckContentsMatches
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filters:
+                  $ref: '#/components/schemas/DeckContentFilters'
+                query:
+                  type: string
+                  description: Only count contents matching this text
+            example:
+              filters:
+                recent: []
+                progress: []
+                system: []
+                jlpt: ['n5']
+                type: []
+              query: ''
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 2
+                  unit_counts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        deck_unit_id:
+                          type: integer
+                          example: 67890
+                        count:
+                          type: integer
+                          example: 2
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -1976,7 +2053,9 @@ components:
               example: "hour, o'clock"
             level:
               type: string
-              description: JLPT level, written like `N5` on vocab and like `JLPT3` on grammar points
+              description: |
+                JLPT level, written like `N5` on vocab and like `JLPT3` on grammar points. Vocab outside
+                the JLPT lists has other values, such as `A1` or `A19`.
               example: 'N5'
             type_pascal:
               type: string
@@ -1986,6 +2065,50 @@ components:
               type: string
               description: '`vocab` or `grammar_point`'
               example: 'vocab'
+
+    DeckContentFilters:
+      type: object
+      description: |
+        Filters for a deck's contents. Each key takes a list of values, compared without regard to
+        case. Several values in one key match items with any of them; several keys must all match.
+        The web client always sends all five keys, but keys can be left out. A value the API does
+        not know is ignored, which leaves that key unfiltered.
+      properties:
+        recent:
+          type: array
+          description: Recently reviewed or recently learned items
+          items:
+            type: string
+            enum: [reviews, learned]
+        progress:
+          type: array
+          description: The user's SRS progress on the item
+          items:
+            type: string
+            enum: [new, beginner, adept, seasoned, expert, master]
+        system:
+          type: array
+          items:
+            type: string
+            enum: [bookmarked, ghost, troubled]
+        jlpt:
+          type: array
+          description: JLPT level; `none` matches items without one
+          items:
+            type: string
+            enum: [n5, n4, n3, n2, n1, none]
+        type:
+          type: array
+          description: Kind of reviewable. Note that grammar is `grammar` here, not `GrammarPoint`.
+          items:
+            type: string
+            enum: [vocab, grammar]
+      example:
+        recent: []
+        progress: []
+        system: []
+        jlpt: ['n5']
+        type: []
 
     DeckList:
       type: object
@@ -2104,6 +2227,8 @@ components:
           type: integer
         sorting_order:
           type: string
+          description: Vocab lesson order; see `sorting_order` on List Deck Contents for the values
+          example: 'default'
         default_input_type_grammar:
           type: string
         default_input_type_vocab:
