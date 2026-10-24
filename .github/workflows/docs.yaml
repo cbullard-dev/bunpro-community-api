@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'spec/frontend.yaml'
+      - 'docs/index.html'
 
 jobs:
   build-spec:
