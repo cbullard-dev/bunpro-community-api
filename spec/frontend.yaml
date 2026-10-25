@@ -469,8 +469,7 @@ paths:
                           type: string
                           example: 'q0'
                         base_attributes:
-                          type: object
-                          nullable: true
+                          type: [object, 'null']
                           description: The matched reviewable, or null when nothing matched
                           properties:
                             data:
@@ -936,14 +935,13 @@ paths:
                 filters:
                   $ref: '#/components/schemas/DeckContentFilters'
                 sorting_order:
-                  type: string
-                  nullable: true
+                  type: [string, 'null']
                   description: |
                     `default` (or null) keeps the deck's own order. `alphabetical` sorts by title.
                     `general`, `anime`, `novels`, `netflix` and `dictionary` sort from most to least
                     frequent in that kind of source. These are the same values as `sorting_order` in
                     the user's deck settings.
-                  enum: [default, alphabetical, general, anime, novels, netflix, dictionary]
+                  enum: [default, alphabetical, general, anime, novels, netflix, dictionary, null]
                 deck_unit_id:
                   type: string
                   description: Only list the contents of this unit
@@ -2013,10 +2011,11 @@ components:
         `GrammarPoint`; `Grammar` is rejected.
       minItems: 2
       maxItems: 2
-      items:
-        oneOf:
-          - type: string
-          - type: integer
+      prefixItems:
+        - type: string
+          enum: [Vocab, GrammarPoint]
+        - type: integer
+      items: false
       example: ['Vocab', 652]
 
     ReviewableBase:
@@ -2144,8 +2143,7 @@ components:
           description: Numeric deck id
           example: 12345
         user_id:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
           description: The owner's user id; null on Bunpro's own decks
         slug:
           type: string
@@ -2170,11 +2168,9 @@ components:
           type: integer
           example: 1
         cover_image_url:
-          type: string
-          nullable: true
+          type: [string, 'null']
         clone_status:
-          type: string
-          nullable: true
+          type: [string, 'null']
         deck_type:
           type: string
           description: |
@@ -2195,8 +2191,7 @@ components:
           description: Only returned when reading decks, not by create or update
           example: 0
         author_username:
-          type: string
-          nullable: true
+          type: [string, 'null']
           description: Only returned when reading decks, not by create or update
           example: 'NotARealUser'
 
@@ -2238,8 +2233,7 @@ components:
         complete_vocab_count:
           type: integer
         last_learned_at:
-          type: string
-          nullable: true
+          type: [string, 'null']
         daily_goal:
           type: integer
         daily_goal_count_grammar:
@@ -2360,11 +2354,9 @@ components:
           description: Total number of pages
           example: 9
         prev:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
         next:
-          type: integer
-          nullable: true
+          type: [integer, 'null']
           example: 2
 
     Vocab:
@@ -2528,8 +2520,7 @@ components:
         active_cosmetics:
           $ref: '#/components/schemas/ActiveCosmetics'
         active_title:
-          type: string
-          nullable: true
+          type: [string, 'null']
 
     UserAttributes:
       type: object
