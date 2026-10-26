@@ -8,6 +8,25 @@ This is an **unofficial** reverse-engineered API documentation. It is provided u
 
 **The Bunpro API may change without warning.** This documentation will be maintained on a best-effort basis, but changes to the official API may not be immediately reflected here.
 
+## Authentication and temporary API-token workaround
+
+The Frontend API normally accepts the short-lived `frontend_api_token` browser cookie. An experimental alternative for integrations uses the API token displayed in **Settings → API** as the authorization token and appends this query parameter to every Frontend API request:
+
+```text
+dangerously_authenticate_using_api_token=true
+```
+
+For example:
+
+```text
+GET https://api.bunpro.jp/api/frontend/user?dangerously_authenticate_using_api_token=true
+Authorization: Token token="<your API token>"
+```
+
+The API token must be surrounded by double quotation marks in the `Token token="..."` authorization format; `Bearer <token>` does not authenticate it. The API token is a secret. Do not expose it in client-side code, logs, URLs shared with others, or public repositories. The workaround is experimental, unsupported, and may change or be removed without notice. It also does not make the Frontend API an official, stable API.
+
+Stricter request throttling has been in effect since 2026-08-12. Handle HTTP `429` responses, avoid bursts, and use only the requests required by your integration. A route allowlist may replace the current all-routes access; an endpoint that works today may later be unavailable through this workaround. If you distribute a Bunpro-integrated product, disclose these risks to its users.
+
 ## About Bunpro
 
 [Bunpro](https://www.bunpro.jp/) is a popular web and mobile application for learning Japanese grammar through spaced repetition. It features:
@@ -33,4 +52,4 @@ To test this project locally you can follow these steps:
 > You may encounter caching issues. If this is the case clear the cache for the localhost page that you're using to test the redoc page locally.
 
 ## Credits
-highliuk: [Bunpro Postman Collection](https://www.postman.com/technical-meteorologist-63813544/bunpro-api/collection/a7eufz9/bunpro-frontend-api) ([ref](https://community.bunpro.jp/t/bunpro-api-when/100574))
+highliuk: [Bunpro Postman Collection](https://www.postman.com/technical-meteorologist-63813544/bunpro-api/collection/a7eufz9/bunpro-frontend-api)
