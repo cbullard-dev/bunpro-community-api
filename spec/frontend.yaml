@@ -13,11 +13,26 @@ info:
     Some validation failures carry a message instead of a code, for example
     `{"errors":[{"detail":"Some params are missing in payload"}]}` (400).
 
+    ## Authentication
+
+    The Frontend API normally uses the short-lived `frontend_api_token` browser cookie. Bunpro also provides
+    an experimental workaround for integrations: send the API token from **Settings → API** as the authorization
+    token and append `dangerously_authenticate_using_api_token=true` to every request. This workaround is
+    unsupported and may change or disappear without notice. It does not make this an official, stable API.
+
+    Example: `GET /user?dangerously_authenticate_using_api_token=true` with
+    `Authorization: Token token="<your API token>"`. The API token must be surrounded by double quotation
+    marks in this `Token` authorization format; `Bearer <token>` does not authenticate it.
+
     ## Rate limiting
 
-    Bursts of requests are answered with HTTP 429. It was hit after roughly 350 `GET /reviewables/vocab/{id}`
-    calls made three at a time, and cleared after 30 to 60 seconds. About one request per second, sent
-    sequentially, has been reliable.
+    Stricter throttling has been in effect since 2026-08-12. Bursts of requests are answered with HTTP 429. It was hit
+    after roughly 350 `GET /reviewables/vocab/{id}` calls made three at a time, and cleared after 30 to 60
+    seconds. About one request per second, sent sequentially, has been reliable. Handle 429 responses and
+    avoid bursts.
+
+    A route allowlist may replace this temporary API-token workaround. Routes that currently work may later
+    be unavailable through this authentication method.
 
     ## Vocab identifiers
 
@@ -40,6 +55,7 @@ servers:
 
 security:
   - bearerAuth: []
+  - apiTokenAuth: []
 
 paths:
   /user:
@@ -1913,10 +1929,26 @@ components:
         you are logged in (DevTools → Application → Cookies). It is an opaque 32-character string, not a JWT.
 
         The API accepts it either as `Authorization: Bearer <token>` or, as the web client sends it,
-        `Authorization: Token token=<token>`. It works from a script outside the browser.
+        `Authorization: Token token=<token>`. This browser token expires approximately every two weeks and
+        works from a script outside the browser.
 
-        The "API key" shown on the Bunpro settings page is a different credential and is rejected here
-        with `401 AUTH_USER_DENIED`.
+    apiTokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        Experimental temporary workaround: use the API token displayed in **Settings → API** in the complete
+        `Authorization` header value `Token token="<your API token>"` (the token must be surrounded by double
+        quotation marks), and append
+        `dangerously_authenticate_using_api_token=true` to every request. For example:
+        `GET /user?dangerously_authenticate_using_api_token=true` with
+        `Authorization: Token token="<your API token>"`. A `Bearer <token>` authorization header does not
+        authenticate the API token.
+
+        This workaround is unsupported, may change or be removed without notice, and is subject to stricter
+        throttling. Bunpro may replace its current all-routes access with a route allowlist, so an endpoint
+        that works today may not remain available through this method. Treat the API token as a secret and
+        disclose these risks to users of any public Bunpro-integrated product.
 
   parameters:
     DeckCode:
